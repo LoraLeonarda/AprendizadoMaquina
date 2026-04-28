@@ -66,7 +66,7 @@ def salvar_matriz_confusao(nome_modelo, y_true, y_pred):
     #print(f"Matriz de confusão salva: {caminho_completo}")
 
 # ------------------------------
-# AVALIAÇÃO COM PARÂMETROS DEFAULT (seu código original)
+# AVALIAÇÃO COM PARÂMETROS DEFAULT
 # ------------------------------
 modelos_default = {
     "KNN": KNeighborsClassifier(),
@@ -87,6 +87,7 @@ for nome, modelo in modelos_default.items():
     f1 = f1_score(y_teste, opiniao, average='weighted')
     print(f"{nome:15} | Acurácia: {acc:.4f} | F1-score: {f1:.4f}")
     salvar_matriz_confusao(nome, y_teste, opiniao)
+
 
 # ------------------------------
 # BUSCA DE HIPERPARÂMETROS
@@ -113,9 +114,7 @@ param_grids = {
         'learning_rate': ['constant', 'adaptive']
     },
     "SVM": {
-        'C': [0.1, 1, 10],
-        'kernel': ['linear', 'rbf'],
-        'gamma': ['scale', 'auto']
+        # tava quebrando
     },
     "Naive Bayes": {
         'var_smoothing': np.logspace(-9, -5, 5)  # GaussianNB tem poucos parâmetros
@@ -128,14 +127,10 @@ param_grids = {
         'bootstrap': [True, False]
     },
     "Bagging": {
-        'estimator': [DecisionTreeClassifier()],  # base estimator fixo
-        'n_estimators': [10, 50, 100],
-        'max_samples': [0.5, 0.8, 1.0],
-        'bootstrap': [True, False]
+        # talvez?
     },
     "AdaBoost": {
-        'n_estimators': [50, 100, 200],
-        'learning_rate': [0.01, 0.1, 0.5, 1.0]
+        # talvez?
     }
 }
 
@@ -167,15 +162,14 @@ for nome, grid in param_grids.items():
     else:
         continue
 
-    # Configurar o GridSearchCV (usa validação cruzada no treino)
-    # cv=5 é padrão; você pode ajustar para menos folds se os dados forem pequenos
+    # Configurar o GridSearchCV
     gs = GridSearchCV(
         modelo_base,
         param_grid=grid,
         cv=5,
-        scoring='accuracy',        # ou 'f1_weighted', 'roc_auc_ovr', etc.
-        n_jobs=-1,                 # usar todos os cores
-        verbose=1                  # mostra progresso
+        scoring='accuracy',
+        n_jobs=-1,
+        verbose=1
     )
     
     # Executar a busca no conjunto de treino
