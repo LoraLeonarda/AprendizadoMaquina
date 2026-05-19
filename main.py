@@ -63,10 +63,10 @@ for repeticao in range(20):
 
     # Divisão estratificada: 50% treino, 25% validação, 25% teste
     x_treino, x_temp, y_treino, y_temp = train_test_split(
-        X, Y, test_size=0.5, stratify=Y, random_state=42
+        X, Y, test_size=0.5, stratify=Y, shuffle=True
     )
     x_validacao, x_teste, y_validacao, y_teste = train_test_split(
-        x_temp, y_temp, test_size=0.5, stratify=y_temp, random_state=42
+        x_temp, y_temp, test_size=0.5, stratify=y_temp, shuffle=True
     )
 
     # ------------------------------
@@ -74,7 +74,7 @@ for repeticao in range(20):
     # ------------------------------
 
     # KNN
-    print("Treinando KNN...")
+    #print("Treinando KNN...")
     KNN_melhor = KNeighborsClassifier()
     KNN_maior = -1
     KNN_params = []
@@ -93,16 +93,16 @@ for repeticao in range(20):
                 
                 
     # AD
-    print("Treinando AD...")
+    #print("Treinando AD...")
     AD_melhor = DecisionTreeClassifier()
     AD_maior = -1
     AD_params = []
 
     for cri in ['gini', 'entropy', 'log_loss']:
         for spl in ['best', 'random']:
-            for mde in [1, 3, 5, 7, 9]:
+            for mde in [1, 2, 3, 4, 5, 6, 7, 8, 9]:
                 for mss in [2, 4, 6, 8]:
-                    for msl in [1, 2, 3]:
+                    for msl in [1, 2, 3, 4, 5]:
                         #print("\tTreinando ", [cri, spl, mde, mss, msl])
                         AD = DecisionTreeClassifier(criterion = cri, splitter = spl, max_depth = mde, min_samples_split = mss, min_samples_leaf = msl)
                         AD.fit(x_treino, y_treino)
@@ -114,16 +114,13 @@ for repeticao in range(20):
                             AD_params = [cri, spl, mde, mss, msl]
 
     # NB
-    print("Treinando NB...")
-    NB_melhor = GaussianNB()
-    NB_maior = -1
-
+    #print("Treinando NB...")
     NB_melhor = GaussianNB()
     NB_melhor.fit(x_treino, y_treino)
     NB_maior = accuracy_score(y_validacao, NB_melhor.predict(x_validacao))
 
     # SVM
-    print("Treinando SVM...")
+    #print("Treinando SVM...")
     SVM_melhor = SVC()
     SVM_maior = -1
     SVM_params = []
@@ -141,7 +138,7 @@ for repeticao in range(20):
                 SVM_params = [Cval, ker]
 
     # MLP
-    print("Treinando MLP...")
+    #print("Treinando MLP...")
     MLP_melhor = MLPClassifier()
     MLP_maior = -1
     MLP_params = []
@@ -166,7 +163,7 @@ for repeticao in range(20):
                                 MLP_params = [mit, lra, hla, npl, act, bsi]
 
     # Random Forest
-    print("Treinando RF...")
+    #print("Treinando RF...")
     RF_melhor = RandomForestClassifier()
     RF_maior = -1
     RF_params = []
@@ -187,7 +184,7 @@ for repeticao in range(20):
                             RF_params = [nes, cri, mde, mss, msl]
 
     # Bagging
-    print("Treinando Bagging...")
+    #print("Treinando Bagging...")
     BG_melhor = BaggingClassifier
     BG_maior = -1
     BG_params = []
@@ -207,7 +204,7 @@ for repeticao in range(20):
 
 
     # Boosting
-    print("Treinando Boosting...")
+    #print("Treinando Boosting...")
     BO_melhor = AdaBoostClassifier()
     BO_maior = -1
     BO_params = []
@@ -304,4 +301,3 @@ for repeticao in range(20):
     print(f"    Borda: Acc: {acc_borda:.4f} F1: {f1_borda:.4f}")
 
     print()  # linha em branco entre repetições
-    
