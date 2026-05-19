@@ -1,9 +1,6 @@
 # Bibliotecas basicas
 import pandas as pd
 import numpy as np
-import os
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 # Métodos de split e métricas
 from sklearn.model_selection import train_test_split, GridSearchCV
