@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 # Métodos de split e métricas
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score
 from scipy.stats import mode
 
@@ -32,10 +32,8 @@ def borda_count(probas_list):
     n_classes = probas_list[0].shape[1]
     borda_scores = np.zeros((n_amostras, n_classes))
     for probas in probas_list:
-        # Ordena os índices das classes por probabilidade decrescente para cada amostra
-        sorted_idx = np.argsort(-probas, axis=1)  # (n_amostras, n_classes)
-        # Atribui pontuação: posição 0 -> n_classes, posição 1 -> n_classes-1, ...
-        points = np.arange(n_classes, 0, -1)  # [n_classes, n_classes-1, ..., 1]
+        sorted_idx = np.argsort(-probas, axis=1)
+        points = np.arange(n_classes, 0, -1)
         for i in range(n_amostras):
             borda_scores[i, sorted_idx[i]] += points
     return np.argmax(borda_scores, axis=1)
@@ -70,7 +68,7 @@ for repeticao in range(20):
     )
 
     # ------------------------------
-    # BUSCA DE HIPERPARÂMETROS
+    # BUSCA DE HIPERPARÂMETROS (VALORES DENSOS)
     # ------------------------------
 
     # KNN
@@ -80,8 +78,7 @@ for repeticao in range(20):
     KNN_params = []
 
     for wei in ['uniform', 'distance']:
-        for nei in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
-            #print("\tTreinando ", [wei, nei])
+        for nei in range(1, 31):
             KNN = KNeighborsClassifier(n_neighbors = nei, weights = wei)
             KNN.fit(x_treino, y_treino)
             opiniao = KNN.predict(x_validacao)
@@ -100,11 +97,11 @@ for repeticao in range(20):
 
     for cri in ['gini', 'entropy', 'log_loss']:
         for spl in ['best', 'random']:
-            for mde in [1, 2, 3, 4, 5, 6, 7, 8, 9]:
-                for mss in [2, 4, 6, 8]:
-                    for msl in [1, 2, 3, 4, 5]:
-                        #print("\tTreinando ", [cri, spl, mde, mss, msl])
-                        AD = DecisionTreeClassifier(criterion = cri, splitter = spl, max_depth = mde, min_samples_split = mss, min_samples_leaf = msl)
+            for mde in [1, 2, 3, 5, 7, 10, 15, 20, None]:
+                for mss in [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]:
+                    for msl in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
+                        AD = DecisionTreeClassifier(criterion = cri, splitter = spl, max_depth = mde,
+                                                    min_samples_split = mss, min_samples_leaf = msl)
                         AD.fit(x_treino, y_treino)
                         opiniao = AD.predict(x_validacao)
                         Acc = accuracy_score(y_validacao, opiniao)
@@ -125,9 +122,8 @@ for repeticao in range(20):
     SVM_maior = -1
     SVM_params = []
 
-    for Cval in [0.5, 1.0, 1.5, 2.0]:
+    for Cval in [0.01, 0.1, 0.5, 1, 2, 5, 10, 50, 100]:
         for ker in ['poly', 'rbf', 'sigmoid']:
-            #print("\tTreinando ", [Cval, ker])
             SVM = SVC(C = Cval, kernel = ker, probability = True)
             SVM.fit(x_treino, y_treino)
             opiniao = SVM.predict(x_validacao)
@@ -143,17 +139,18 @@ for repeticao in range(20):
     MLP_maior = -1
     MLP_params = []
 
-    for mit in [100, 200]:
+    for mit in [200, 300, 500]:
         for lra in ['constant', 'invscaling', 'adaptive']:
             for hla in [1, 2]:
-                for npl in [13, 26]:
+                for npl in [7, 13, 26]:
                     for act in ['identity', 'logistic', 'tanh', 'relu']:
-                        for bsi in [32, 48]:
-                            #print("\tTreinando ", [mit, lra, hla, npl, act, bsi])
+                        for bsi in [32, 64, 128]:
                             hls = ()
                             for i in range(hla):
                                 hls += (npl,)
-                            MLP = MLPClassifier(max_iter = mit, learning_rate = lra, hidden_layer_sizes = hls, activation = act, batch_size = bsi)
+                            MLP = MLPClassifier(max_iter = mit, learning_rate = lra,
+                                                hidden_layer_sizes = hls,
+                                                activation = act, batch_size = bsi)
                             MLP.fit(x_treino, y_treino)
                             opiniao = MLP.predict(x_validacao)
                             Acc = accuracy_score(y_validacao, opiniao)
@@ -168,13 +165,15 @@ for repeticao in range(20):
     RF_maior = -1
     RF_params = []
 
-    for nes in [50, 100, 150, 200]:
+    for nes in [50, 100, 300]:
         for cri in ['gini', 'entropy', 'log_loss']:
-            for mde in [1, 3, 5, 7, 9]:
-                for mss in [2, 4, 6, 8]:
-                    for msl in [1, 2, 3]:
-                        #print("\tTreinando ", [nes, cri, mde, mss, msl])
-                        RF = RandomForestClassifier(n_estimators = nes, criterion = cri, max_depth = mde, min_samples_split = mss, min_samples_leaf = msl)
+            for mde in [3, 5, 7, 10, None]:
+                for mss in [2, 4, 6, 10]:
+                    for msl in [1, 2, 4, 6]:
+                        RF = RandomForestClassifier(n_estimators = nes, criterion = cri,
+                                                    max_depth = mde,
+                                                    min_samples_split = mss,
+                                                    min_samples_leaf = msl)
                         RF.fit(x_treino, y_treino)
                         opiniao = RF.predict(x_validacao)
                         Acc = accuracy_score(y_validacao, opiniao)
@@ -185,14 +184,13 @@ for repeticao in range(20):
 
     # Bagging
     #print("Treinando Bagging...")
-    BG_melhor = BaggingClassifier
+    BG_melhor = BaggingClassifier()
     BG_maior = -1
     BG_params = []
 
-    for nes in [5, 10, 15, 20]:
-        for msa in [0.25, 0.5, 0.75, 1.0]:
+    for nes in [5, 10, 20, 30, 50]:
+        for msa in [0.2, 0.4, 0.6, 0.8, 1.0]:
             for est in [KNeighborsClassifier(), DecisionTreeClassifier(), MLPClassifier()]:
-                #print("\tTreinando ", [nes, msa, est])
                 BG = BaggingClassifier(n_estimators = nes, max_samples = msa, estimator = est)
                 BG.fit(x_treino, y_treino)
                 opiniao = BG.predict(x_validacao)
@@ -209,10 +207,9 @@ for repeticao in range(20):
     BO_maior = -1
     BO_params = []
 
-    for nes in [5, 10, 15, 20]:
+    for nes in [5, 10, 20, 50, 100]:
         for est in [DecisionTreeClassifier(), MLPClassifier()]:
-            for lra in [0.1, 0.5, 1.0, 1.5, 2.0]:
-                #print("\tTreinando ", [nes, est, lra])
+            for lra in [0.01, 0.1, 0.25, 0.5, 1.0, 2.0]:
                 BO = AdaBoostClassifier(n_estimators = nes, estimator = est, learning_rate = lra)
                 BO.fit(x_treino, y_treino)
                 opiniao = BO.predict(x_validacao)
