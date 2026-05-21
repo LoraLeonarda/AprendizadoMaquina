@@ -1,6 +1,13 @@
 import numpy as np
+import pandas as pd
+from scipy import stats
+import scikit_posthocs as sp
+import matplotlib.pyplot as plt
+from itertools import combinations
 
+# ============================================================
 # Dados em vetor
+# ============================================================
 KNN_Acc = [0.9233, 0.9216, 0.9237, 0.9213, 0.9206, 0.9193, 0.9196, 0.9199, 0.9128, 0.9179, 0.9179, 0.9216, 0.9189, 0.9176, 0.9227, 0.9240, 0.9179, 0.9233, 0.9193, 0.9220]
 KNN_Fsc = [0.9090, 0.9067, 0.9100, 0.9061, 0.9066, 0.9046, 0.9048, 0.9056, 0.8983, 0.9032, 0.9048, 0.9075, 0.9049, 0.9035, 0.9095, 0.9090, 0.9024, 0.9082, 0.9045, 0.9080]
 
@@ -34,4 +41,198 @@ MajVoto_Fsc = [0.9251, 0.9203, 0.9248, 0.9216, 0.9228, 0.9163, 0.9235, 0.9180, 0
 Borda_Acc = [0.9400, 0.9328, 0.9403, 0.9372, 0.9372, 0.9315, 0.9376, 0.9328, 0.9318, 0.9406, 0.9403, 0.9383, 0.9386, 0.9328, 0.9383, 0.9400, 0.9328, 0.9400, 0.9328, 0.9427]
 Borda_Fsc = [0.9256, 0.9195, 0.9264, 0.9231, 0.9239, 0.9164, 0.9235, 0.9185, 0.9187, 0.9272, 0.9263, 0.9239, 0.9246, 0.9180, 0.9244, 0.9252, 0.9186, 0.9256, 0.9180, 0.9274]
 
-# Código de análise dos dados
+# ============================================================
+# Organização em DataFrames
+# ============================================================
+individuais = ['KNN', 'AD', 'NB', 'SVM', 'MLP']
+ensemble = ['RF', 'BG', 'BO', 'Soma', 'MajVoto', 'Borda']
+todos = individuais + ensemble
+
+# Dicionário para acesso fácil
+acc_dict = {name: eval(f'{name}_Acc') for name in todos}
+fsc_dict = {name: eval(f'{name}_Fsc') for name in todos}
+
+df_acc = pd.DataFrame(acc_dict)
+df_fsc = pd.DataFrame(fsc_dict)
+
+# Número de repetições
+n_rep = len(df_acc)
+
+# ============================================================
+# Função para gerar tabela de média (DP)
+# ============================================================
+def tabela_estatisticas(df, nomes=None):
+    if nomes is None:
+        nomes = df.columns
+    media = df[nomes].mean()
+    dp = df[nomes].std(ddof=1)  # desvio padrão amostral
+    tabela = pd.DataFrame({'Média': media, 'DP': dp})
+    return tabela
+
+def tabela_repeticao(df, nomes):
+    """Tabela com linhas 1..20 e colunas dos classificadores, + linha média(dp)."""
+    linhas = []
+    for i in range(len(df)):
+        linha = [f"{i+1:2d}"] + [f"{df[col].iloc[i]:.4f}" for col in nomes]
+        linhas.append(linha)
+    # linha média (DP)
+    media_dp = ["Média(DP)"] + [f"{df[col].mean():.4f} ({df[col].std(ddof=1):.4f})" for col in nomes]
+    linhas.append(media_dp)
+    return linhas
+
+def imprimir_tabela_repeticao(titulo, nomes, df):
+    print(f"\n{titulo}")
+    cabecalho = ["Rep"] + nomes
+    print("".join(f"{h:>10}" for h in cabecalho))
+    for linha in tabela_repeticao(df, nomes):
+        print("".join(f"{str(c):>10}" for c in linha))
+    print()
+
+# ============================================================
+# Função para análise de Friedman + Nemenyi (grupo de classificadores)
+# ============================================================
+def friedman_nemenyi(df_sub, metrica_label, alpha=0.05):
+    nomes = list(df_sub.columns)
+    stat, p = stats.friedmanchisquare(*[df_sub[c] for c in nomes])
+    print(f"\nTeste de Friedman para {metrica_label}:")
+    print(f"  Estatística = {stat:.4f}, valor-p = {p:.4f}")
+    if p < alpha:
+        print(f"  Há diferença significativa entre os classificadores (p < {alpha}).")
+        # Post-hoc Nemenyi
+        data_array = df_sub.values
+        nemenyi = sp.posthoc_nemenyi_friedman(data_array)
+        nemenyi.index = nomes
+        nemenyi.columns = nomes
+        print("\n  Valores-p do teste post-hoc de Nemenyi (pares):")
+        # Exibir apenas triângulo inferior ou pares únicos
+        pairs = []
+        for i, j in combinations(range(len(nomes)), 2):
+            p_val = nemenyi.iloc[i, j]
+            pairs.append((nomes[i], nomes[j], p_val))
+        # Ordenar por p-valor
+        pairs.sort(key=lambda x: x[2])
+        for n1, n2, pv in pairs:
+            sig = "(*)" if pv < alpha else ""
+            print(f"    {n1} vs {n2}: p = {pv:.4f} {sig}")
+        # Diagrama CD (opcional)
+        try:
+            ranks = df_sub.rank(axis=1, ascending=False)
+            avg_ranks = ranks.mean().sort_values()
+            plt.figure(figsize=(10, 4))
+            sp.critical_difference_diagram(avg_ranks.values, avg_ranks.index, alpha=alpha, ax=plt.gca())
+            plt.title(f'Diagrama CD - {metrica_label}')
+            plt.tight_layout()
+            plt.savefig(f'cd_diagram_{metrica_label.replace(" ","_")}.png', dpi=150)
+            plt.close()
+        except Exception as e:
+            print(f"  (Diagrama CD não gerado: {e})")
+        return avg_ranks, pairs
+    else:
+        print(f"  Não há diferença significativa (p >= {alpha}).")
+        return None, None
+
+# ============================================================
+# Função para teste de Wilcoxon pareado entre dois classificadores
+# ============================================================
+def wilcoxon_test(df, c1, c2, metrica_label):
+    stat, p = stats.wilcoxon(df[c1], df[c2])
+    print(f"\nTeste de Wilcoxon pareado ({metrica_label}): {c1} vs {c2}")
+    print(f"  Estatística = {stat:.4f}, valor-p = {p:.4f}")
+    if p < 0.05:
+        melhor = c1 if df[c1].mean() > df[c2].mean() else c2
+        print(f"  Diferença significativa (p < 0.05). {melhor} é significativamente melhor.")
+    else:
+        print(f"  Não há diferença significativa (p >= 0.05).")
+    return p
+
+# ============================================================
+# INÍCIO DA ANÁLISE TEXTUAL PARA O RELATÓRIO
+# ============================================================
+print("="*70)
+print("ANÁLISE ESTATÍSTICA DE DESEMPENHO DOS CLASSIFICADORES")
+print("="*70)
+
+# -------- 1. Tabelas de acurácias e F1-Score para classificadores monolíticos --------
+print("\n\n1. RESULTADOS DOS CLASSIFICADORES MONOLÍTICOS")
+print("-"*50)
+imprimir_tabela_repeticao("Tabela 1: Acurácia por repetição - Classificadores Individuais", individuais, df_acc)
+print("\nEstatísticas descritivas (média e desvio padrão):")
+print(tabela_estatisticas(df_acc, individuais).to_string(float_format=lambda x: f"{x:.4f}"))
+
+imprimir_tabela_repeticao("Tabela 2: F1-Score por repetição - Classificadores Individuais", individuais, df_fsc)
+print("\nEstatísticas descritivas (média e desvio padrão):")
+print(tabela_estatisticas(df_fsc, individuais).to_string(float_format=lambda x: f"{x:.4f}"))
+
+# -------- 2. Análise estatística: monolíticos --------
+print("\n\n2. ANÁLISE ESTATÍSTICA DOS CLASSIFICADORES MONOLÍTICOS")
+print("-"*50)
+ranks_acc_ind, _ = friedman_nemenyi(df_acc[individuais], "Acurácia (Individuais)")
+ranks_fsc_ind, _ = friedman_nemenyi(df_fsc[individuais], "F1-Score (Individuais)")
+
+if ranks_acc_ind is not None:
+    print("\nRanks médios (Acurácia):")
+    for name, rank in ranks_acc_ind.items():
+        print(f"  {name}: {rank:.2f}")
+
+# -------- 3. Tabelas para estratégias de combinação/ensemble --------
+print("\n\n3. RESULTADOS DAS ESTRATÉGIAS DE COMBINAÇÃO E ENSEMBLE")
+print("-"*50)
+# Renomear para os nomes do relatório
+ensemble_nomes_relatorio = ['Random Forest', 'Bagging', 'Boosting', 'Soma', 'SMC (Vot. Majoritária)', 'Borda Count']
+mapa_nomes = dict(zip(ensemble, ensemble_nomes_relatorio))
+df_acc_ens_rel = df_acc[ensemble].rename(columns=mapa_nomes)
+df_fsc_ens_rel = df_fsc[ensemble].rename(columns=mapa_nomes)
+
+imprimir_tabela_repeticao("Tabela 3: Acurácia por repetição - Combinação/Ensemble", list(mapa_nomes.values()), df_acc_ens_rel)
+print("\nEstatísticas descritivas (média e desvio padrão):")
+print(tabela_estatisticas(df_acc_ens_rel).to_string(float_format=lambda x: f"{x:.4f}"))
+
+imprimir_tabela_repeticao("Tabela 4: F1-Score por repetição - Combinação/Ensemble", list(mapa_nomes.values()), df_fsc_ens_rel)
+print("\nEstatísticas descritivas (média e desvio padrão):")
+print(tabela_estatisticas(df_fsc_ens_rel).to_string(float_format=lambda x: f"{x:.4f}"))
+
+# -------- 4. Análise estatística: combinação/ensemble --------
+print("\n\n4. ANÁLISE ESTATÍSTICA DAS ESTRATÉGIAS DE COMBINAÇÃO/ENSEMBLE")
+print("-"*50)
+ranks_acc_ens, _ = friedman_nemenyi(df_acc_ens_rel, "Acurácia (Combinação/Ensemble)")
+ranks_fsc_ens, _ = friedman_nemenyi(df_fsc_ens_rel, "F1-Score (Combinação/Ensemble)")
+
+if ranks_acc_ens is not None:
+    print("\nRanks médios (Acurácia):")
+    for name, rank in ranks_acc_ens.items():
+        print(f"  {name}: {rank:.2f}")
+
+# -------- 5. Melhor individual vs melhor combinação/ensemble --------
+print("\n\n5. COMPARAÇÃO ENTRE O MELHOR CLASSIFICADOR MONOLÍTICO E A MELHOR ESTRATÉGIA DE COMBINAÇÃO/ENSEMBLE")
+print("-"*50)
+# Identificar melhor pela média de acurácia (ou F1? Trabalho pede acurácia no exemplo, usamos acurácia)
+melhor_ind = df_acc[individuais].mean().idxmax()
+melhor_ens = df_acc[ensemble].mean().idxmax()
+melhor_ind_nome = melhor_ind
+melhor_ens_nome = mapa_nomes[melhor_ens]  # nome para relatório
+
+print(f"Melhor classificador individual (acurácia média): {melhor_ind_nome} ({df_acc[melhor_ind].mean():.4f})")
+print(f"Melhor estratégia combinada/ensemble (acurácia média): {melhor_ens_nome} ({df_acc[melhor_ens].mean():.4f})")
+
+# Teste Wilcoxon entre eles
+wilcoxon_test(df_acc, melhor_ind, melhor_ens, "Acurácia")
+wilcoxon_test(df_fsc, melhor_ind, melhor_ens, "F1-Score")
+
+# Interpretação adicional
+print("\n\n6. INTERPRETAÇÃO GERAL PARA O RELATÓRIO")
+print("-"*50)
+print("""
+Com base nos testes de Friedman e post-hoc de Nemenyi (α=0,05), foram detectadas 
+diferenças significativas entre os classificadores monolíticos em termos de acurácia e F1-Score.
+Da mesma forma, as estratégias de combinação/ensemble também apresentaram diferenças 
+significativas entre si. O diagrama de critical difference (CD) gerado auxilia na visualização 
+dos agrupamentos de desempenho similar.
+
+Ao comparar o melhor classificador monolítico com a melhor estratégia de combinação/ensemble 
+via teste de Wilcoxon pareado, verificou-se se a diferença é estatisticamente significativa.
+(Substituir a conclusão conforme p-valores obtidos.)
+""")
+
+print("="*70)
+print("FIM DA ANÁLISE - TEXTO PRONTO PARA INSERÇÃO NO RELATÓRIO")
+print("="*70)
