@@ -1,8 +1,6 @@
 import numpy as np
 import pandas as pd
 from scipy import stats
-import scikit_posthocs as sp
-import matplotlib.pyplot as plt
 from itertools import combinations
 
 # ============================================================
@@ -89,43 +87,32 @@ def imprimir_tabela_repeticao(titulo, nomes, df):
     print()
 
 # ============================================================
-# Função para análise de Friedman + Nemenyi (grupo de classificadores)
+# Função para análise de Friedman + post-hoc Wilcoxon pareado (sem ajuste)
 # ============================================================
-def friedman_nemenyi(df_sub, metrica_label, alpha=0.05):
+def friedman_wilcoxon_posthoc(df_sub, metrica_label, alpha=0.05):
     nomes = list(df_sub.columns)
     stat, p = stats.friedmanchisquare(*[df_sub[c] for c in nomes])
     print(f"\nTeste de Friedman para {metrica_label}:")
     print(f"  Estatística = {stat:.4f}, valor-p = {p:.4f}")
     if p < alpha:
         print(f"  Há diferença significativa entre os classificadores (p < {alpha}).")
-        # Post-hoc Nemenyi
-        data_array = df_sub.values
-        nemenyi = sp.posthoc_nemenyi_friedman(data_array)
-        nemenyi.index = nomes
-        nemenyi.columns = nomes
-        print("\n  Valores-p do teste post-hoc de Nemenyi (pares):")
-        # Exibir apenas triângulo inferior ou pares únicos
+        # Post-hoc Wilcoxon pareado sem ajuste
         pairs = []
         for i, j in combinations(range(len(nomes)), 2):
-            p_val = nemenyi.iloc[i, j]
-            pairs.append((nomes[i], nomes[j], p_val))
-        # Ordenar por p-valor
+            c1, c2 = nomes[i], nomes[j]
+            _, p_val = stats.wilcoxon(df_sub[c1], df_sub[c2])
+            pairs.append((c1, c2, p_val))
         pairs.sort(key=lambda x: x[2])
+        print("\n  Valores-p do teste de Wilcoxon pareado (sem ajuste):")
         for n1, n2, pv in pairs:
             sig = "(*)" if pv < alpha else ""
             print(f"    {n1} vs {n2}: p = {pv:.4f} {sig}")
-        # Diagrama CD (opcional)
-        try:
-            ranks = df_sub.rank(axis=1, ascending=False)
-            avg_ranks = ranks.mean().sort_values()
-            plt.figure(figsize=(10, 4))
-            sp.critical_difference_diagram(avg_ranks.values, avg_ranks.index, alpha=alpha, ax=plt.gca())
-            plt.title(f'Diagrama CD - {metrica_label}')
-            plt.tight_layout()
-            plt.savefig(f'cd_diagram_{metrica_label.replace(" ","_")}.png', dpi=150)
-            plt.close()
-        except Exception as e:
-            print(f"  (Diagrama CD não gerado: {e})")
+        # Ranks médios (para referência)
+        ranks = df_sub.rank(axis=1, ascending=False)
+        avg_ranks = ranks.mean().sort_values()
+        print("\n  Ranks médios (referência):")
+        for name, rank in avg_ranks.items():
+            print(f"    {name}: {rank:.2f}")
         return avg_ranks, pairs
     else:
         print(f"  Não há diferença significativa (p >= {alpha}).")
@@ -133,6 +120,7 @@ def friedman_nemenyi(df_sub, metrica_label, alpha=0.05):
 
 # ============================================================
 # Função para teste de Wilcoxon pareado entre dois classificadores
+# (mantida para a comparação final)
 # ============================================================
 def wilcoxon_test(df, c1, c2, metrica_label):
     stat, p = stats.wilcoxon(df[c1], df[c2])
@@ -166,8 +154,8 @@ print(tabela_estatisticas(df_fsc, individuais).to_string(float_format=lambda x: 
 # -------- 2. Análise estatística: monolíticos --------
 print("\n\n2. ANÁLISE ESTATÍSTICA DOS CLASSIFICADORES MONOLÍTICOS")
 print("-"*50)
-ranks_acc_ind, _ = friedman_nemenyi(df_acc[individuais], "Acurácia (Individuais)")
-ranks_fsc_ind, _ = friedman_nemenyi(df_fsc[individuais], "F1-Score (Individuais)")
+ranks_acc_ind, _ = friedman_wilcoxon_posthoc(df_acc[individuais], "Acurácia (Individuais)")
+ranks_fsc_ind, _ = friedman_wilcoxon_posthoc(df_fsc[individuais], "F1-Score (Individuais)")
 
 if ranks_acc_ind is not None:
     print("\nRanks médios (Acurácia):")
@@ -194,8 +182,8 @@ print(tabela_estatisticas(df_fsc_ens_rel).to_string(float_format=lambda x: f"{x:
 # -------- 4. Análise estatística: combinação/ensemble --------
 print("\n\n4. ANÁLISE ESTATÍSTICA DAS ESTRATÉGIAS DE COMBINAÇÃO/ENSEMBLE")
 print("-"*50)
-ranks_acc_ens, _ = friedman_nemenyi(df_acc_ens_rel, "Acurácia (Combinação/Ensemble)")
-ranks_fsc_ens, _ = friedman_nemenyi(df_fsc_ens_rel, "F1-Score (Combinação/Ensemble)")
+ranks_acc_ens, _ = friedman_wilcoxon_posthoc(df_acc_ens_rel, "Acurácia (Combinação/Ensemble)")
+ranks_fsc_ens, _ = friedman_wilcoxon_posthoc(df_fsc_ens_rel, "F1-Score (Combinação/Ensemble)")
 
 if ranks_acc_ens is not None:
     print("\nRanks médios (Acurácia):")
@@ -205,7 +193,7 @@ if ranks_acc_ens is not None:
 # -------- 5. Melhor individual vs melhor combinação/ensemble --------
 print("\n\n5. COMPARAÇÃO ENTRE O MELHOR CLASSIFICADOR MONOLÍTICO E A MELHOR ESTRATÉGIA DE COMBINAÇÃO/ENSEMBLE")
 print("-"*50)
-# Identificar melhor pela média de acurácia (ou F1? Trabalho pede acurácia no exemplo, usamos acurácia)
+# Identificar melhor pela média de acurácia
 melhor_ind = df_acc[individuais].mean().idxmax()
 melhor_ens = df_acc[ensemble].mean().idxmax()
 melhor_ind_nome = melhor_ind
@@ -222,11 +210,10 @@ wilcoxon_test(df_fsc, melhor_ind, melhor_ens, "F1-Score")
 print("\n\n6. INTERPRETAÇÃO GERAL PARA O RELATÓRIO")
 print("-"*50)
 print("""
-Com base nos testes de Friedman e post-hoc de Nemenyi (α=0,05), foram detectadas 
-diferenças significativas entre os classificadores monolíticos em termos de acurácia e F1-Score.
-Da mesma forma, as estratégias de combinação/ensemble também apresentaram diferenças 
-significativas entre si. O diagrama de critical difference (CD) gerado auxilia na visualização 
-dos agrupamentos de desempenho similar.
+Com base nos testes de Friedman e post-hoc de Wilcoxon pareado (sem ajuste, α=0,05),
+foram detectadas diferenças significativas entre os classificadores monolíticos 
+em termos de acurácia e F1-Score. Da mesma forma, as estratégias de combinação/ensemble 
+também apresentaram diferenças significativas entre si.
 
 Ao comparar o melhor classificador monolítico com a melhor estratégia de combinação/ensemble 
 via teste de Wilcoxon pareado, verificou-se se a diferença é estatisticamente significativa.
