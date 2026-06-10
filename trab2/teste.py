@@ -189,13 +189,10 @@ Agnes_metricas = Normalizar(Agnes_metricas)
 
 
 # Unificar metricas em um unico valor
-KMeans_metricas_unica = []
-DBSCAN_metricas_unica = []
-Agnes_metricas_unica = []
-for entrada in range(len(KMeans_metricas)):
-    KMeans_metricas_unica.append(np.mean(KMeans_metricas[entrada]))
-    DBSCAN_metricas_unica.append(np.mean(DBSCAN_metricas[entrada]))
-    Agnes_metricas_unica.append(np.mean(Agnes_metricas[entrada]))
+KMeans_metricas_unica = [np.mean(m) for m in KMeans_metricas]
+DBSCAN_metricas_unica = [np.mean(m) for m in DBSCAN_metricas]
+Agnes_metricas_unica  = [np.mean(m) for m in Agnes_metricas]
+
 
 # Selecionar melhores modelos
 # KMeans
