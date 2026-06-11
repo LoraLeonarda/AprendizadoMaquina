@@ -191,8 +191,8 @@ KMeans_metricas = InverterMinimizacao(Normalizar(KMeans_metricas))
 DBSCAN_modelos = []
 DBSCAN_parametros = []
 DBSCAN_metricas = []
-for e in [0.1, 0.2, 0.3, 0.4, 0.5, 0.8, 1, 2, 2.5, 3]:
-    for ms in range(2, 51):
+for e in np.arange(0.1, 10.1, 0.1).tolist():
+    for ms in range(1, 51):
         modelo = DBSCAN(eps=e, min_samples=ms)
         modelo.fit(dados_sem_label)
         DBSCAN_modelos.append(modelo)
@@ -204,7 +204,7 @@ DBSCAN_metricas = InverterMinimizacao(Normalizar(DBSCAN_metricas))
 Agnes_modelos = []
 Agnes_parametros = []
 Agnes_metricas = []
-for nc in range(2, 7):
+for nc in range(2, 20):
     for lk in ['ward', 'complete', 'average', 'single']:
         modelo = AgglomerativeClustering(n_clusters=nc, linkage=lk)
         modelo.fit(dados_sem_label)
