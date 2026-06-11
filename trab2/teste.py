@@ -255,90 +255,90 @@ for i in range(len(Agnes_metricas_unica)):
 # ============================================================
 # EXIBIÇÃO DAS MÉTRICAS DO MELHOR MODELO DE CADA ALGORITMO
 # ============================================================
-print("\n" + "="*70)
-print("RESULTADOS DOS MELHORES MODELOS (MÉTRICAS NORMALIZADAS E INVERTIDAS)")
-print("="*70)
+print('\n' + '='*70)
+print('RESULTADOS DOS MELHORES MODELOS (MÉTRICAS NORMALIZADAS E INVERTIDAS)')
+print('='*70)
 
 # Função auxiliar para imprimir métricas de forma legível
 def imprime_metricas(metricas_lista, idx, nome_algo, parametros):
     m = metricas_lista[idx]
-    print(f"\n>>> {nome_algo} | Parâmetros: {parametros}")
-    print(f"  Coesão (maximizar)        : {m[0]:.4f}")
-    print(f"  Separação (maximizar)     : {m[1]:.4f}")
-    print(f"  Coef. Silhueta (maximizar): {m[2]:.4f}")
-    print(f"  Homogeneidade (maximizar) : {m[3]:.4f}")
-    print(f"  Rand Index (maximizar)    : {m[4]:.4f}")
-    print(f"  ARI (maximizar)           : {m[5]:.4f}")
-    print(f"  Completude (maximizar)    : {m[6]:.4f}")
-    print(f"  V-Measure (maximizar)     : {m[7]:.4f}")
-    print(f"  Entropia (maximizar)      : {m[8]:.4f}")
-    print(f"  Score médio (global)      : {np.mean(m):.4f}")
+    print(f'\n>>> {nome_algo} | Parâmetros: {parametros}')
+    print(f'  Coesão (maximizar)        : {m[0]:.4f}')
+    print(f'  Separação (maximizar)     : {m[1]:.4f}')
+    print(f'  Coef. Silhueta (maximizar): {m[2]:.4f}')
+    print(f'  Homogeneidade (maximizar) : {m[3]:.4f}')
+    print(f'  Rand Index (maximizar)    : {m[4]:.4f}')
+    print(f'  ARI (maximizar)           : {m[5]:.4f}')
+    print(f'  Completude (maximizar)    : {m[6]:.4f}')
+    print(f'  V-Measure (maximizar)     : {m[7]:.4f}')
+    print(f'  Entropia (maximizar)      : {m[8]:.4f}')
+    print(f'  Score médio (global)      : {np.mean(m):.4f}')
 
-imprime_metricas(KMeans_metricas, KMeans_melhor_idx, "K-MEANS", 
-                 f"n_clusters={KMeans_parametros[KMeans_melhor_idx][0]}, max_iter={KMeans_parametros[KMeans_melhor_idx][1]}")
-imprime_metricas(DBSCAN_metricas, DBSCAN_melhor_idx, "DBSCAN",
-                 f"eps={DBSCAN_parametros[DBSCAN_melhor_idx][0]}, min_samples={DBSCAN_parametros[DBSCAN_melhor_idx][1]}")
-imprime_metricas(Agnes_metricas, Agnes_melhor_idx, "AGNES",
-                 f"n_clusters={Agnes_parametros[Agnes_melhor_idx][0]}, linkage={Agnes_parametros[Agnes_melhor_idx][1]}")
+imprime_metricas(KMeans_metricas, KMeans_melhor_idx, 'K-MEANS', 
+                 f'n_clusters={KMeans_parametros[KMeans_melhor_idx][0]}, max_iter={KMeans_parametros[KMeans_melhor_idx][1]}')
+imprime_metricas(DBSCAN_metricas, DBSCAN_melhor_idx, 'DBSCAN',
+                 f'eps={DBSCAN_parametros[DBSCAN_melhor_idx][0]}, min_samples={DBSCAN_parametros[DBSCAN_melhor_idx][1]}')
+imprime_metricas(Agnes_metricas, Agnes_melhor_idx, 'AGNES',
+                 f'n_clusters={Agnes_parametros[Agnes_melhor_idx][0]}, linkage={Agnes_parametros[Agnes_melhor_idx][1]}')
 
 
 # ============================================================
 # ANÁLISE COMPARATIVA FINAL (conforme seções 2.4 e 4.1 do PDF)
 # ============================================================
-print("\n" + "="*70)
-print("COMPARAÇÃO ENTRE OS TRÊS MÉTODOS")
-print("="*70)
+print('\n' + '='*70)
+print('COMPARAÇÃO ENTRE OS TRÊS MÉTODOS')
+print('='*70)
 
 # Montar tabela comparativa
-metricas_nomes = ["Coesão", "Separação", "Silhueta", "Homogeneidade", "Rand Index", "ARI", "Completude", "V-Measure", "Entropia"]
-print("\nTabela comparativa (valores normalizados, todos maximizar):")
-print(f"{'Métrica':<20} {'K-Means':>12} {'DBSCAN':>12} {'AGNES':>12}")
-print("-" * 58)
+metricas_nomes = ['Coesão', 'Separação', 'Silhueta', 'Homogeneidade', 'Rand Index', 'ARI', 'Completude', 'V-Measure', 'Entropia']
+print('\nTabela comparativa (valores normalizados, todos maximizar):')
+print(f'{'Métrica':<20} {'K-Means':>12} {'DBSCAN':>12} {'AGNES':>12}')
+print('-' * 58)
 for i, nome in enumerate(metricas_nomes):
     k_val = KMeans_metricas[KMeans_melhor_idx][i]
     d_val = DBSCAN_metricas[DBSCAN_melhor_idx][i]
     a_val = Agnes_metricas[Agnes_melhor_idx][i]
-    print(f"{nome:<20} {k_val:>12.4f} {d_val:>12.4f} {a_val:>12.4f}")
+    print(f'{nome:<20} {k_val:>12.4f} {d_val:>12.4f} {a_val:>12.4f}')
 
 # Contar vitórias por métrica
-vitorias = {"K-Means": 0, "DBSCAN": 0, "AGNES": 0}
+vitorias = {'K-Means': 0, 'DBSCAN': 0, 'AGNES': 0}
 for i in range(9):
     melhor = max(
-        (KMeans_metricas[KMeans_melhor_idx][i], "K-Means"),
-        (DBSCAN_metricas[DBSCAN_melhor_idx][i], "DBSCAN"),
-        (Agnes_metricas[Agnes_melhor_idx][i], "AGNES")
+        (KMeans_metricas[KMeans_melhor_idx][i], 'K-Means'),
+        (DBSCAN_metricas[DBSCAN_melhor_idx][i], 'DBSCAN'),
+        (Agnes_metricas[Agnes_melhor_idx][i], 'AGNES')
     )[1]
     vitorias[melhor] += 1
 
-print("\nNúmero de métricas em que cada algoritmo foi o melhor:")
+print('\nNúmero de métricas em que cada algoritmo foi o melhor:')
 for algo, count in vitorias.items():
-    print(f"  {algo}: {count} de 9 métricas")
+    print(f'  {algo}: {count} de 9 métricas')
 
 # Decisão final justificada (não baseada em uma única métrica)
 media_k = np.mean(KMeans_metricas[KMeans_melhor_idx])
 media_d = np.mean(DBSCAN_metricas[DBSCAN_melhor_idx])
 media_a = np.mean(Agnes_metricas[Agnes_melhor_idx])
 
-print("\n--- MÉDIA GERAL (todas as métricas) ---")
-print(f"  K-Means: {media_k:.4f}")
-print(f"  DBSCAN : {media_d:.4f}")
-print(f"  AGNES  : {media_a:.4f}")
+print('\n--- MÉDIA GERAL (todas as métricas) ---')
+print(f'  K-Means: {media_k:.4f}')
+print(f'  DBSCAN : {media_d:.4f}')
+print(f'  AGNES  : {media_a:.4f}')
 
-print("\n--- QUAL MODELO É O MAIS INDICADO? ---")
+print('\n--- QUAL MODELO É O MAIS INDICADO? ---')
 melhor_media = max(media_k, media_d, media_a)
 if melhor_media == media_k:
-    print("➡ O K-Means apresentou a melhor média geral e venceu em mais métricas.")
-    print("   Justificativa: O dataset possui clusters com formatos aproximadamente esféricos e bem separados,")
-    print("   o que favorece o K-Means. Ele obteve altos valores de silhueta, homogeneidade e V-Measure.")
+    print('   O K-Means apresentou a melhor média geral e venceu em mais métricas.')
+    print('   Justificativa: O dataset possui clusters com formatos aproximadamente esféricos e bem separados,')
+    print('   o que favorece o K-Means. Ele obteve altos valores de silhueta, homogeneidade e V-Measure.')
 elif melhor_media == media_d:
-    print("➡ O DBSCAN superou os demais, indicando que o dataset pode conter clusters de formatos arbitrários")
-    print("   ou ruído. Justificativa: Apesar da sensibilidade a parâmetros, o DBSCAN conseguiu capturar")
-    print("   estruturas que os métodos baseados em centroide não detectaram.")
+    print('   O DBSCAN superou os demais, indicando que o dataset pode conter clusters de formatos arbitrários')
+    print('   ou ruído. Justificativa: Apesar da sensibilidade a parâmetros, o DBSCAN conseguiu capturar')
+    print('   estruturas que os métodos baseados em centroide não detectaram.')
 else:
-    print("➡ O AGNES (clustering hierárquico aglomerativo) foi o mais adequado.")
-    print("   Justificativa: O método hierárquico equilibrou bem as métricas intrínsecas e extrínsecas.")
-    print(f"   O linkage '{Agnes_parametros[Agnes_melhor_idx][1]}' mostrou-se eficaz para este conjunto de dados.")
-print("="*70 + "\n")
+    print('   O AGNES (clustering hierárquico aglomerativo) foi o mais adequado.')
+    print('   Justificativa: O método hierárquico equilibrou bem as métricas intrínsecas e extrínsecas.')
+    print(f'   O linkage \'{Agnes_parametros[Agnes_melhor_idx][1]}\' mostrou-se eficaz para este conjunto de dados.')
+print('='*70 + '\n')
 
 
 # AAA
