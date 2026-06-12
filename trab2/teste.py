@@ -16,9 +16,7 @@ dataset = pd.read_csv('dataset.csv')
 dados_com_label = pd.DataFrame(dataset)
 dados_sem_label = pd.DataFrame(dataset,columns=dataset.columns[:-1])
 
-# ============================================================
-# ANÁLISE DESCRITIVA DOS DADOS (conforme seção 2.1 do PDF)
-# ============================================================
+# ANÁLISE DESCRITIVA DOS DADOS
 print("\n" + "="*70)
 print("ANÁLISE DESCRITIVA DO DATASET")
 print("="*70)
@@ -34,12 +32,7 @@ for cls in classes_reais:
     print(f"  Classe {cls}: {cont} instâncias ({100*cont/len(dados_com_label):.1f}%)")
 print("="*70 + "\n")
 
-# IMPORTANTE: 
-# não precisa de normalização dos dados, os cluesters em blob estão com centro bem definidos e a distância de suas instâncias estão bem comportadas em volta da base
-# O método que mais vai ter problemas é o DBSCAN, pois dois dos cluesters estão colados, o kmeans vai ser o melhor (acho), enquanto o AGNES não sei como vai se sair, acho q um meio termo entre os dois
-# TODO: algumas métricas são de minimização, identificar e fazer 1-métrica
-
-# PLOTAR DADOS BASE
+# PLOTAR DADOS
 def GraficoDados(labels, titulo):
     plt.scatter(dados_com_label['x'], dados_com_label['y'], c=labels, cmap="rainbow")
     plt.xlim(-13, 13)
@@ -71,14 +64,18 @@ def Metricas(modelo):
     
     
     # metodos manuais
-    # separação
-    separacao = 0.0
-    for i in range(len(centroides)):
-        for j in range(i + 1, len(centroides)):
-            separacao += np.linalg.norm(
-                centroides[i] - centroides[j]
-            )
-            
+    # separação média (entre todos os pares de centroides, cortesia DeepSeek)
+    if len(centroides) >= 2:
+        num_pares = len(centroides) * (len(centroides) - 1) / 2
+        soma_distancias = 0.0
+        for i in range(len(centroides)):
+            for j in range(i + 1, len(centroides)):
+                soma_distancias += np.linalg.norm(
+                    centroides[i] - centroides[j]
+                )
+        separacao = soma_distancias / num_pares
+    else:
+        separacao = 0.0
             
     # entropia
     entropia = 0.0
@@ -144,35 +141,60 @@ def Metricas(modelo):
     # retorno de métricas
     return metricas
     
-# Método para normalizar vetor de métricas passado
-def Normalizar(metricas):
+# NORMALIZAÇÃO (métricas de coesão, separação e entropia)
+def Normalizar(KMeans_met, DBSCAN_met, Agnes_met):
+    # Seleciona indices das métricas para normalizar (coesão, separação e entropia)
+    indices_para_normalizar = [0, 1, 8]
+    num_metricas = len(KMeans_met[0])
     
-    # Identificar ranges
-    maiores = []
-    menores = []
+    # Junta todos os vetores para obter mínimos e máximos globais
+    todos_vetores = KMeans_met + DBSCAN_met + Agnes_met
     
-    # Para cada metrica
-    for metrica in range(len(metricas[0])):
-        maiores.append(max([dado[metrica] for dado in metricas]))
-        menores.append(min([dado[metrica] for dado in metricas]))
-        
-    # Aplicar transformações ((valor - menor) / (maior - menor))
-    # Para cada entrada
-    for entrada in range(len(metricas)):
-        # Para cada metrica
-        for metrica in range(len(metricas[entrada])):
-            metricas[entrada][metrica] = (metricas[entrada][metrica]-menores[metrica]) / (maiores[metrica] - menores[metrica])
+    # Calcula min e max apenas para os índices selecionados
+    mins_globais = {}
+    maxs_globais = {}
+    for idx in indices_para_normalizar:
+        valores = [vetor[idx] for vetor in todos_vetores]
+        mins_globais[idx] = min(valores)
+        maxs_globais[idx] = max(valores)
     
-    # Retorna
-    return metricas
+    def normalizar_lista(lista_vetores):
+        nova_lista = []
+        for vetor in lista_vetores:
+            novo_vetor = vetor.copy()   # cópia para não alterar o original
+            for idx in indices_para_normalizar:
+                denom = maxs_globais[idx] - mins_globais[idx]
+                if denom != 0:
+                    novo_vetor[idx] = (vetor[idx] - mins_globais[idx]) / denom
+                else:
+                    novo_vetor[idx] = 0.0   # valor constante -> normalizado como 0
+            nova_lista.append(novo_vetor)
+        return nova_lista
+    
+    KMeans_norm = normalizar_lista(KMeans_met)
+    DBSCAN_norm = normalizar_lista(DBSCAN_met)
+    Agnes_norm  = normalizar_lista(Agnes_met)
+    
+    return KMeans_norm, DBSCAN_norm, Agnes_norm
 
-# Método para inverter valores de minimização normalizados para maximização
-def InverterMinimizacao(metricas_normalizadas):
-    for entrada in range(len(metricas_normalizadas)):
-        metricas_normalizadas[entrada][0] = 1 - metricas_normalizadas[entrada][0]   # coesão
-        metricas_normalizadas[entrada][8] = 1 - metricas_normalizadas[entrada][8]   # entropia
-    return metricas_normalizadas
+
+# Inverte métricas de minimização (coesão e entropia) para maximização.
+def InverterMinimizacao(tuplas_normalizadas):
+    KMeans_norm, DBSCAN_norm, Agnes_norm = tuplas_normalizadas
     
+    def inverter_lista(lista):
+        nova_lista = []
+        for vetor in lista:
+            vetor_invertido = vetor.copy()
+            vetor_invertido[0] = 1 - vetor_invertido[0] # coesão
+            vetor_invertido[8] = 1 - vetor_invertido[8] # entropia
+            nova_lista.append(vetor_invertido)
+        return nova_lista
+    
+    return inverter_lista(KMeans_norm), inverter_lista(DBSCAN_norm), inverter_lista(Agnes_norm)
+    
+
+# MÉTODOS
 
 # KMeans
 KMeans_modelos = []
@@ -185,7 +207,6 @@ for nc in range(2, 7):
         KMeans_modelos.append(modelo)
         KMeans_parametros.append([nc, mi])
         KMeans_metricas.append(Metricas(modelo))
-KMeans_metricas = InverterMinimizacao(Normalizar(KMeans_metricas))
 
 # DBscan
 DBSCAN_modelos = []
@@ -198,7 +219,6 @@ for e in np.arange(0.1, 10.1, 0.1).tolist():
         DBSCAN_modelos.append(modelo)
         DBSCAN_parametros.append([e, ms])
         DBSCAN_metricas.append(Metricas(modelo))
-DBSCAN_metricas = InverterMinimizacao(Normalizar(DBSCAN_metricas))
         
 # Agnes
 Agnes_modelos = []
@@ -211,10 +231,15 @@ for nc in range(2, 20):
         Agnes_modelos.append(modelo)
         Agnes_parametros.append([nc, lk])
         Agnes_metricas.append(Metricas(modelo))
-Agnes_metricas = InverterMinimizacao(Normalizar(Agnes_metricas))
 
 
-# Unificar metricas em um unico valor
+# NORMALIZAÇÃO
+KMeans_metricas, DBSCAN_metricas, Agnes_metricas = InverterMinimizacao(
+    Normalizar(KMeans_metricas, DBSCAN_metricas, Agnes_metricas)
+)
+
+
+# Unificar metricas em um unico valor pela média
 KMeans_metricas_unica = [np.mean(m) for m in KMeans_metricas]
 DBSCAN_metricas_unica = [np.mean(m) for m in DBSCAN_metricas]
 Agnes_metricas_unica  = [np.mean(m) for m in Agnes_metricas]
@@ -253,7 +278,7 @@ for i in range(len(Agnes_metricas_unica)):
 
 
 # ============================================================
-# EXIBIÇÃO DAS MÉTRICAS DO MELHOR MODELO DE CADA ALGORITMO
+# EXIBIÇÃO DAS MÉTRICAS DO MELHOR MODELO DE CADA ALGORITMO (cortesia DeepSeek)
 # ============================================================
 print('\n' + '='*70)
 print('RESULTADOS DOS MELHORES MODELOS (MÉTRICAS NORMALIZADAS E INVERTIDAS)')
@@ -283,7 +308,7 @@ imprime_metricas(Agnes_metricas, Agnes_melhor_idx, 'AGNES',
 
 
 # ============================================================
-# ANÁLISE COMPARATIVA FINAL (conforme seções 2.4 e 4.1 do PDF)
+# ANÁLISE COMPARATIVA FINAL (cortesia DeepSeek)
 # ============================================================
 print('\n' + '='*70)
 print('COMPARAÇÃO ENTRE OS TRÊS MÉTODOS')
@@ -341,7 +366,7 @@ else:
 print('='*70 + '\n')
 
 
-# AAA
+# GRÁFICOS FINAIS
 GraficoDados(KMeans_melhor.labels_, 'KMeans.png')
 GraficoDados(DBSCAN_melhor.labels_, 'DBSCAN.png')
 GraficoDados(Agnes_melhor.labels_, 'Agnes.png')
